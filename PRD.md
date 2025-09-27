@@ -1,145 +1,190 @@
-
 # PRD — Advisor AI MultiAgente
 
-**Versión:** 1.0 
-**Clasificación:** Pública  
-**Fecha:** 2025-09-26  
-**Propósito:** Definir el **MVP** (flujo funcional simplificado con RAG sin BBDD estructurada), requisitos funcionales/técnicos, roadmap y primeras tareas detalladas de la Fase 1.
+## Motivación
 
-> **Aviso**: Este sistema es **educativo** y **no constituye asesoramiento financiero**. Se basa en documentación pública (KID/DFI, folletos, fichas) y buenas prácticas de idoneidad MiFID para lenguaje claro y registro, sin sustituir obligaciones reguladas. Véanse referencias: CNMV sobre DFI/KID, ESMA (MiFID idoneidad), metodología SRRI/SRI (UCITS/PRIIPs), EMT FinDatEx y GDPR.  
-> Referencias: [CNMV–DFI/KID](https://www.cnmv.es/Portal/inversor/Fondos-DFI?lang=es), [ESMA MiFID II Suitability 2022](https://www.esma.europa.eu/press-news/esma-news/esma-publishes-final-guidelines-mifid-ii-suitability-requirements-0), [CESR/ESMA SRRI 10-673](https://www.esma.europa.eu/sites/default/files/library/2015/11/10_673.pdf), [ESAs PRIIPs Q&A consolidado](https://www.esma.europa.eu/sites/default/files/2023-05/JC_2023_22_-_Consolidated_JC_PRIIPs_Q_As.pdf), [FinDatEx EMT](https://www.findatex.eu/), [GDPR – EUR‑Lex](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng).
+El asesoramiento financiero de calidad sigue siendo caro, fragmentado y con barreras de acceso para gran parte del retail. Aprovechar LLMs dentro de una Agentic Composable Architecture permite diseñar una solución escalable, verificable y adaptable:
 
----
+- **Agentes especializados:** cada agente gestiona una responsabilidad clara (ingesta, extracción de riesgo, filtrado de costes, generación de shortlist, explicación al cliente), facilitando validación reglamentaria, pruebas A/B y auditoría por componente.
+- **Arquitectura modular composable:** los módulos pueden recombinarse o sustituirse sin rehacer el sistema, acelerando iteraciones, despliegues por fases y adaptación ante cambios regulatorios o nuevos modelos LLM.
+- **Robustez operativa:** separación de responsabilidades que limita el blast radius ante fallos y facilita controles de cumplimiento centralizados, versionado de fuentes y trazabilidad de decisiones.
+- **Explicabilidad y grounding:** agentes de grounding garantizan que todas las afirmaciones estén respaldadas por citas verificables (KID/DFI/folleto), reduciendo riesgo regulatorio y mejorando transparencia.
+- **Escalabilidad de producto:** capacidades avanzadas (optimización cuantitativa, reporting regulatorio, alertas ESG) se integran como agentes adicionales sin reescribir el núcleo.
 
-## 1) Objetivos
-- Generar **3 carteras modelo** para cliente retail a partir de su **perfil** y **documentación pública** de fondos registrados en la **CNMV**.  
-- Mantener **trazabilidad** mediante **citas textuales** a KID/DFI y folletos (modo *grounded‑only*).  
-- Entregar **explicación clara**, **PDF** y **envío por email**.  
-- **MVP sin BBDD estructurada**: ingestion → RAG (vector DB) → LLM.
-
-## 2) Alcance (MVP)
-- **Usuarios**: cliente retail (entorno educativo).  
-- **Productos**: fondos UCITS registrados en CNMV (España/UE).  
-- **Canal**: web (chat conversacional en español, EUR).  
-- **Deliverables**: 3 carteras + explicación + PDF + email.  
-- **Quedan fuera** (iteraciones posteriores): órdenes de suscripción, firma, CRM, optimización cuantitativa avanzada, reporting regulatorio completo.
+**Beneficio práctico:** producir propuestas de inversión rápidas, trazables y adaptativas, reducir costes operativos e impulsar validación temprana de producto y cumplimiento.
 
 ---
 
-# PARTE FUNCIONAL
+## Objetivo
 
-## 3) Flujo funcional del **MVP** (sin BBDD estructurada)
-1. **Descubrimiento y descarga automática** de PDFs (KID/DFI, folletos, fichas) desde fuentes públicas (CNMV/gestoras). *(Mensual y bajo demanda).*  
-2. **Preprocesamiento**: limpieza, OCR si es necesario, y segmentación en **fragmentos** (*chunks*) con metadatos mínimos `{docId, tipo, url, fecha_doc, página, posible ISIN}`.  
-3. **Indexación RAG (Vector DB)**: se calculan embeddings de cada fragmento y se indexan para recuperación semántica.  
-4. **Onboarding** (chat) y **perfilado simple**: liquidez, capacidad de pérdida, horizonte, objetivo, experiencia → perfil (Conservador/Moderado/Dinámico/Agresivo) y **SRRI/SRI objetivo**. *(MiFID idoneidad en lenguaje claro)*.  
-5. **Recuperación de contexto** (RAG): dado el perfil, el agente busca fragmentos relevantes (riesgo 1–7, costes, política, liquidez) por categoría para construir un *shortlist* de fondos candidatos (no se persisten métricas estructuradas).  
-6. **Propuesta de carteras** (regla simple): plantilla **core‑satellite** por perfil + límites básicos (coste/antigüedad/AUM aproximados según citas) → **3 alternativas**: (A) coste, (B) calidad/consistencia, (C) ajuste ligero a contexto macro.  
-7. **Explicación y citas**: el LLM redacta razones en lenguaje claro y añade **citas** `[tipo, página, fecha_doc]` a pasajes del KID/folleto/ficha.  
-8. **Generación de PDF y envío por email**; registro simple de la interacción y lista de documentos citados.
+Entregar un MVP operativo que en entorno educativo genere en menos de **10 segundos** para cada usuario **3 carteras modelo adaptativas** justificadas y trazables, con al menos **3 citas** por propuesta extraídas exclusivamente de KID/DFI y folletos públicos, y que produzca un PDF exportable con envío por email.
 
-## 4) Requisitos funcionales
-- **Onboarding**: cuestionario llano; derivación de perfil y SRRI/SRI objetivo (1–7).  
-- **Criterios de selección básicos** (a nivel documental, sin cálculo): excluir clases con comisiones de entrada, **TER elevado** (comparado vs. pasajes citados), antigüedad muy baja, o complejidad no apta retail.  
-- **Límites de diversificación** por cartera: máx. 25% por fondo, máx. 40% por gestora.  
-- **Explicabilidad**: al menos **3 citas** por propuesta (riesgo, costes, política).  
-- **Disclaimers** visibles en UI y PDF.  
-- **No bloqueo** por faltantes: si falta un dato crítico, se **sugiere alternativa** o se marca la asunción de forma transparente.
+**Flujo base:** ingestion → RAG (vector store) → LLM  
+**Residencia de datos:** UE  
+**Registro:** para auditoría
 
-## 5) Requisitos no funcionales
-- **Privacidad** y residencia de datos en **UE** (GDPR); minimización de PII; consentimiento.  
-- **Disponibilidad** objetivo 99,5% (MVP); **rendimiento**: primera propuesta < 10 s; PDF < 5 s.  
-- **Observabilidad mínima**: logs de descargas, indexación y citas; métrica % propuestas con ≥3 citas.
+### Criterios medibles
 
-## 6) Cumplimiento (enfoque educativo)
-- Uso de **KID/DFI** y **Folleto** como fuentes primarias, lenguaje claro, y registro de respuestas (buenas prácticas **MiFID II**).  
-- **Indicador 1–7** SRRI/SRI según documentos públicos (no recalculado).  
-- **grounded‑only**: no se afirman datos sin cita.  
-- Referencias: [CNMV–DFI/KID](https://www.cnmv.es/Portal/inversor/Fondos-DFI?lang=es), [ESMA MiFID II Suitability](https://www.esma.europa.eu/press-news/esma-news/esma-publishes-final-guidelines-mifid-ii-suitability-requirements-0), [SRRI CESR/10‑673](https://www.esma.europa.eu/sites/default/files/library/2015/11/10_673.pdf), [PRIIPs Q&A](https://www.esma.europa.eu/sites/default/files/2023-05/JC_2023_22_-_Consolidated_JC_PRIIPs_Q_As.pdf).
+- Latencia de propuesta < 10 s  
+- PDF final < 2 MB  
+- ≥ 3 citas por cartera  
+- Recuperación por ISIN/gestora ≥ 5 fragments relevantes  
+- Consentimiento registrado; PII minimizada; datos en UE
 
 ---
 
-# PARTE TÉCNICA (MVP)
+## Descripción funcional de la herramienta
 
-## 7) Arquitectura técnica
-- **Ingestor ligero** (descarga + OCR opcional).  
-- **Procesador de documentos** (segmentación a *chunks* con metadatos mínimos).  
-- **Vector DB** (RAG) para recuperación semántica.  
-- **Servicio LLM** con herramientas: búsqueda RAG, generador de carteras (regla simple), generador de PDF.  
-- **Frontend web** (chat + vista de carteras y “por qué”).
+### Ingestor de documentos
 
-## 8) Integraciones y componentes
-- **Fuentes**: CNMV (KID/DFI, folletos) y webs de gestoras (fichas).  
-- **Vector store**: colección por `tipo=KID|Folleto|Ficha`; metadatos `{docId, url, fecha_doc, página}`.  
-- **Generación de PDF**: plantilla con portada, resumen, carteras, citas y disclaimers.  
-- **Email**: servicio SMTP/Graph básico (confirmación y log).
+> Ver sección detallada más abajo
 
-## 9) Seguridad y datos
-- **PII mínima** (nombre y email opcionales); consentimiento explícito; cifrado en tránsito y reposo; almacenamiento UE (GDPR).  
-- **Logging**: guardar prompts/respuestas con **metadatos y citas**, nunca *chain‑of‑thought*.
+### Preprocesador y extractor
 
----
+- **Propósito:** limpieza, OCR fallback, extracción de texto y segmentación en fragments con metadatos  
+- **Salidas:** chunks con metadatos `{docId, tipo, url, fecha_doc, página, posible_ISIN}`
 
-# 10) Roadmap
-- **Fase 1 (MVP)** — RAG + LLM sin BBDD estructurada, reglas simples de cartera, PDF/email.  
-- **Fase 2** — **Optimización cuantitativa** (p. ej., mínima varianza, volatilidad objetivo o *tracking error* a benchmark) y **target market EMT** cuando esté disponible públicamente.  
-- **Fase 3** — **Reporting regulatorio** (costes ex‑ante, anexos, versionado formal), **BBDD estructurada** de métricas históricas, ESG, alertas por evento, multilingüe.  
+### Indexador RAG
 
-Referencias de marco: [FinDatEx EMT](https://www.findatex.eu/), [ESMA/PRIIPs](https://www.esma.europa.eu/sites/default/files/2023-05/JC_2023_22_-_Consolidated_JC_PRIIPs_Q_As.pdf).
+- **Propósito:** generar embeddings por fragmento y permitir recuperación semántica filtrable por metadatos  
+- **Salidas:** índice consultable por agentes
 
----
+### Onboarding y perfilado conversacional
 
-# 11) Plan del **MVP** (alto nivel)
-- **Semana 1–2**: Ingesta + OCR + RAG; cuestionario y derivación de perfil.  
-- **Semana 3–4**: Reglas de selección y plantillas por perfil; generación de 3 carteras; explicabilidad con citas.  
-- **Semana 5**: PDF + email; panel mínimo de observabilidad; pruebas E2E; cierre MVP.
+- **Propósito:** capturar liquidez, tolerancia a pérdida, horizonte, objetivo y experiencia; mapear a perfil y SRRI/SRI objetivo  
+- **Salidas:** perfil estructurado y consentimiento registrado
 
----
+### Recuperador de contexto y shortlist
 
-# 12) Desarrollo MVP — **Primeras tareas (Fase 1)**
+- **Propósito:** según perfil, recuperar fragmentos relevantes (riesgo, costes, política, liquidez) y construir shortlist de fondos candidatos con evidencia  
+- **Salidas:** lista priorizada de fondos con citas
 
-## Tarea 1 — Ingesta & RAG mínimos
-**Objetivo**: disponer de documentos indexados para citas.  
-**Funcional**: descargar KID/DFI/folletos/fichas, OCR si procede, *chunking*, embeddings, indexación.  
-**Técnico**: job manual y por cron mensual; metadatos `{docId, url, fecha_doc, página}`; política de prioridad: KID/DFI > Folleto > Ficha.  
-**Aceptación**: consultar por ISIN/gestora y recuperar ≥5 fragmentos relevantes con página y fecha_doc.
+### Generador de carteras modelo adaptativas
 
-## Tarea 2 — Onboarding y perfilado
-**Objetivo**: obtener perfil (Conservador/Moderado/Dinámico/Agresivo) y SRRI/SRI objetivo.  
-**Funcional**: cuestionario llano (liquidez, capacidad de pérdida, horizonte, objetivo, experiencia).  
-**Técnico**: formulario en chat; reglas de puntuación y mapeo a rango SRRI/SRI.  
-**Aceptación**: perfil consistente y persistencia mínima de respuestas (con consentimiento).
+- **Propósito:** aplicar plantillas core‑satellite y reglas por perfil para producir 3 alternativas: coste, calidad y ajuste macro  
+- **Salidas:** 3 carteras con pesos, verificación de límites y lista de citas
 
-## Tarea 3 — Generación de carteras (regla simple) + explicabilidad
-**Objetivo**: crear **3 alternativas** por perfil, con límites básicos.  
-**Funcional**: plantillas por perfil (bandas RF/RV/monetarios), límites por fondo/gestora; evitar clases con fee de entrada y TER alto según citas.  
-**Técnico**: selección basada en fragmentos recuperados (sin BBDD); función de reparto de pesos con *rounding* a 1%.  
-**Aceptación**: 3 carteras válidas, cada una con **≥3 citas** (riesgo, costes, política) y límites respetados.
+### Motor de explicación y trazabilidad
 
-## Tarea 4 — PDF & Email
-**Objetivo**: entregar un documento claro y trazable.  
-**Funcional**: portada, perfil, 3 carteras, “por qué”, citas, riesgos clave, disclaimers.  
-**Técnico**: motor de plantillas PDF; envío por email; registro de envío.  
-**Aceptación**: PDF < 2 MB, render uniforme y enlaces/citas legibles.
+- **Propósito:** redactar en lenguaje claro el “por qué” de cada cartera, anclando afirmaciones a citas verificables  
+- **Salidas:** texto explicativo con ≥ 3 citas por cartera
 
-## Tarea 5 — Observabilidad mínima y legales
-**Objetivo**: visibilidad y control.  
-**Funcional**: panel simple con nº de documentos indexados, % propuestas con ≥3 citas, tiempos medios.  
-**Técnico**: logs estructurados; almacenamiento UE; disclaimers en UI/PDF.  
-**Aceptación**: panel visible, métricas actualizadas y disclaimers verificados.
+### Generación de PDF y entrega por email
+
+- **Propósito:** componer informe con portada, perfil, carteras, explicaciones, citas y disclaimers; envío y registro  
+- **Salidas:** PDF y registro de envío
+
+### Observabilidad y cumplimiento
+
+- **Propósito:** logs de ingestion, indexación, consultas RAG, respuestas LLM y envíos; métricas de calidad y panel básico de supervisión  
+- **Salidas:** métricas y logs para auditoría
+
+### UX administrativa y operaciones
+
+- **Propósito:** controlar fuentes, forzar reindexado, revisar documentos y aprobar disclaimers; operativa transversal
+
+### Fases posteriores
+
+- **Fase 2:** Optimización cuantitativa; base de datos estructurada con métricas históricas; integración EMT target market  
+- **Fase 3:** Reporting regulatorio; versionado formal; alertas ESG; multilingüe
 
 ---
 
-# 13) Criterios de aceptación del MVP
-- Propuesta en < **10 s** con **3 carteras** y **≥3 citas** por propuesta.  
-- PDF generado y enviado por email correctamente.  
-- Trazabilidad: lista de documentos citados con `[tipo, página, fecha_doc, URL]`.  
-- Disclaimers visibles y consentimiento registrado.
+## Ingestor de documentos — Documentos mínimos desde la CNMV
+
+**Objetivo:** definir el conjunto mínimo de documentos públicos de fondos que el Ingestor debe localizar y descargar desde la CNMV para que el MVP pueda recuperar evidencia suficiente y cumplir los requisitos de trazabilidad y explicabilidad.
+
+### Documentos mínimos (ordenados por prioridad)
+
+#### 1. KID / DFI — Mínimo obligatorio
+
+- **Por qué:** contiene SRRI/SRI, perfil de riesgo, resumen de costes, política de inversión resumida, liquidez  
+- **Datos clave:** SRRI/SRI, comisiones (TER, suscripción/reembolso), política de inversión, liquidez, fecha_doc, página
+
+#### 2. Folleto / Prospectus — Mínimo obligatorio
+
+- **Por qué:** política de inversión completa, límites, derivados, comisiones, cláusulas legales  
+- **Datos clave:** política detallada, uso de derivados, restricciones, estructura de costes, gestora, fecha_doc, páginas
+
+#### 3. Ficha técnica / Fact Sheet — Mínimo recomendado
+
+- **Por qué:** AUM, rentabilidades, benchmark, antigüedad  
+- **Datos clave:** AUM, fecha de lanzamiento, rentabilidades (1y/3y/5y), benchmark, ISIN, fecha_doc
+
+### Documentos opcionales para iteraciones futuras
+
+- Informes anuales / semestrales  
+- Prospectus supplements  
+- Desglose TER  
+- Documentos ESG / sostenibilidad
+
+### Razonamiento funcional mínimo
+
+- El MVP exige evidencia en tres dominios: **Riesgo**, **Costes**, **Política de inversión**  
+- KID/DFI y Folleto cubren los tres; la Ficha mejora calidad de selección  
+- Si sólo hay dos documentos, el sistema debe justificar con lo disponible
+
+### Metadatos mínimos por documento
+
+- `docId`, `tipo`, `url_origen`, `fecha_doc`, `fecha_descarga`, `checksum`, `paginas`, `ISINs_detectados`, `gestora`, `calidad_texto`
+
+### Metadatos por fragmento (chunk)
+
+- `chunkId`, `docId`, `tipo`, `url`, `fecha_doc`, `página`, `offset_texto`, `posible_ISIN`, `etiqueta_tematica`, `score_calidad_OCR`
+
+### Política de ingestión mínima
+
+- Prioridad: KID/DFI > Folleto > Ficha  
+- Versionado obligatorio  
+- Si no hay ISIN, marcar como “sin identificación”  
+- Revisión manual si necesario
+
+### Guía de alcance para próximas iteraciones
+
+- Iteración 2: añadir informes anuales y supplements  
+- Iteración 3: integrar fuentes externas (gestoras, EMT, datos abiertos); normalizar campos numéricos
 
 ---
 
-# 14) Anexo (pendiente de definir en posteriores iteraciones)
-- Umbrales por categoría (TER máximos orientativos y antigüedad).  
-- Señales macro mínimas para ajuste ligero.  
-- Texto final de disclaimers legales (formato jurídico).  
-- Golden set de pruebas (perfiles y fondos representativos).
+## Plan del MVP alto nivel
+
+- **Semana 1–2:** Ingesta + OCR + RAG; cuestionario y derivación de perfil  
+- **Semana 3–4:** Reglas de selección y plantillas por perfil; generación de 3 carteras; explicabilidad con citas  
+- **Semana 5:** PDF + email; panel mínimo de observabilidad; pruebas E2E; cierre MVP
+
+---
+
+## Parte técnica
+
+### Arquitectura técnica
+
+- **Patrón general:** arquitectura modular basada en agentes orquestados por un coordinador ligero  
+- **Capas principales:** ingestión, procesamiento, RAG, agentes LLM, orquestación, almacenamiento, frontend, entrega  
+- **Resiliencia:** versionado por agente, logs estructurados, fallbacks y modos degradados
+
+### LLM y red de agentes
+
+- El LLM actúa como motor de razonamiento, organizado en agentes especializados:
+  - Ingestor
+  - Preprocesador
+  - Indexador
+  - Perfilado
+  - Recuperador
+  - Selector
+  - Generador de Carteras
+  - Explicador
+  - PDF/Entrega
+  - Observabilidad
+  - Admin Ops
+
+- Cada agente versiona sus prompts y outputs; registra fragments citados y metadatos de confianza
+
+### Integraciones y componentes
+
+- **Fuentes:** CNMV (KID/DFI, folletos) y webs de gestoras  
+- **Vector store:** colección por `tipo=KID|Folleto|Ficha`; metadatos `{docId, url, fecha_doc, página}`  
+- **PDF:** plantilla con portada, resumen, carteras, citas y disclaimers  
+- **Email:** SMTP/Graph básico para confirmación y logs
+
+### Seguridad y datos
+
+- **PII mínima:** nombre y email opcionales; consentimiento explícito; cif
